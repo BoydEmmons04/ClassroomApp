@@ -1,0 +1,15 @@
+# Do not copy real local secrets into the Docker image.
+.env
+
+# Keep local Python artifacts out of the image build context.
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Keep local database files out of the image build context.
+instance/
+*.sqlite3
+
+# Keep git history out of the image build context.
+.git/

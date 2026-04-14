@@ -1,0 +1,14 @@
+# Keep local secrets and machine-specific config out of source control.
+.env
+
+# Ignore Python caches created by Flask, tests, and local tooling.
+__pycache__/
+*.py[cod]
+
+# Ignore local virtual environments.
+.venv/
+venv/
+
+# Ignore Flask's fallback sqlite database when running outside Docker.
+instance/
+*.sqlite3
