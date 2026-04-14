@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from app import db
 
 
@@ -7,13 +5,24 @@ class User(db.Model):
     """Google-authenticated professor, student, or admin account."""
 
     __tablename__ = "users"
+    __table_args__ = (
+        db.CheckConstraint(
+            "role in ('student', 'professor', 'admin')",
+            name="ck_users_role",
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     google_oauth_id = db.Column(db.String(255), unique=True, nullable=True)
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
-    role = db.Column(db.String(30), nullable=False, default="student")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    role = db.Column(db.String(30), nullable=False, default="student", index=True)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        server_default=db.func.now(),
+        nullable=False,
+        index=True,
+    )
 
     taught_courses = db.relationship("Course", back_populates="professor")
     enrollments = db.relationship("CourseEnrollment", back_populates="student")
@@ -28,9 +37,19 @@ class Course(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     course_name = db.Column(db.String(160), nullable=False)
-    professor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    professor_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
     term_or_semester = db.Column(db.String(80), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        server_default=db.func.now(),
+        nullable=False,
+        index=True,
+    )
 
     professor = db.relationship("User", back_populates="taught_courses")
     enrollments = db.relationship("CourseEnrollment", back_populates="course")
@@ -46,9 +65,24 @@ class CourseEnrollment(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    course_id = db.Column(db.Integer, db.ForeignKey("courses.id"), nullable=False)
-    student_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    joined_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    course_id = db.Column(
+        db.Integer,
+        db.ForeignKey("courses.id"),
+        nullable=False,
+        index=True,
+    )
+    student_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+    joined_at = db.Column(
+        db.DateTime(timezone=True),
+        server_default=db.func.now(),
+        nullable=False,
+        index=True,
+    )
 
     course = db.relationship("Course", back_populates="enrollments")
     student = db.relationship("User", back_populates="enrollments")
@@ -58,19 +92,44 @@ class Problem(db.Model):
     """Shared programming challenge that professors can search and launch."""
 
     __tablename__ = "problems"
+    __table_args__ = (
+        db.CheckConstraint(
+            "difficulty in ('easy', 'medium', 'hard')",
+            name="ck_problems_difficulty",
+        ),
+        db.CheckConstraint(
+            "approval_status in ('pending', 'approved', 'rejected')",
+            name="ck_problems_approval_status",
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(180), nullable=False)
+    title = db.Column(db.String(180), nullable=False, index=True)
     description = db.Column(db.Text, nullable=False)
     keywords = db.Column(db.String(255), nullable=True)
     hint = db.Column(db.Text, nullable=True)
-    problem_type = db.Column(db.String(80), nullable=False)
-    language = db.Column(db.String(40), nullable=False, default="python")
-    difficulty = db.Column(db.String(30), nullable=False, default="easy")
+    problem_type = db.Column(db.String(80), nullable=False, index=True)
+    language = db.Column(db.String(40), nullable=False, default="python", index=True)
+    difficulty = db.Column(db.String(30), nullable=False, default="easy", index=True)
     starter_code = db.Column(db.Text, nullable=True)
-    approval_status = db.Column(db.String(30), nullable=False, default="approved")
-    created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    approval_status = db.Column(
+        db.String(30),
+        nullable=False,
+        default="approved",
+        index=True,
+    )
+    created_by = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=True,
+        index=True,
+    )
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        server_default=db.func.now(),
+        nullable=False,
+        index=True,
+    )
 
     creator = db.relationship("User", back_populates="created_problems")
     launches = db.relationship("ProblemLaunch", back_populates="problem")
@@ -80,18 +139,41 @@ class ProblemLaunch(db.Model):
     """A professor's live launch of one problem to one course."""
 
     __tablename__ = "problem_launches"
+    __table_args__ = (
+        db.CheckConstraint(
+            "status in ('active', 'closed', 'archived')",
+            name="ck_problem_launches_status",
+        ),
+        db.CheckConstraint("end_time > start_time", name="ck_problem_launches_time_order"),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
-    problem_id = db.Column(db.Integer, db.ForeignKey("problems.id"), nullable=False)
-    course_id = db.Column(db.Integer, db.ForeignKey("courses.id"), nullable=False)
+    problem_id = db.Column(
+        db.Integer,
+        db.ForeignKey("problems.id"),
+        nullable=False,
+        index=True,
+    )
+    course_id = db.Column(
+        db.Integer,
+        db.ForeignKey("courses.id"),
+        nullable=False,
+        index=True,
+    )
     launched_by_professor_id = db.Column(
         db.Integer,
         db.ForeignKey("users.id"),
         nullable=False,
+        index=True,
     )
-    start_time = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    end_time = db.Column(db.DateTime, nullable=False)
-    status = db.Column(db.String(30), nullable=False, default="active")
+    start_time = db.Column(
+        db.DateTime(timezone=True),
+        server_default=db.func.now(),
+        nullable=False,
+        index=True,
+    )
+    end_time = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
+    status = db.Column(db.String(30), nullable=False, default="active", index=True)
     settings_json = db.Column(db.JSON, nullable=True)
 
     problem = db.relationship("Problem", back_populates="launches")
@@ -114,11 +196,22 @@ class Submission(db.Model):
         db.Integer,
         db.ForeignKey("problem_launches.id"),
         nullable=False,
+        index=True,
     )
-    student_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    student_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
     student_display_name_for_attendance = db.Column(db.String(120), nullable=False)
     submitted_code = db.Column(db.Text, nullable=False)
-    submitted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    submitted_at = db.Column(
+        db.DateTime(timezone=True),
+        server_default=db.func.now(),
+        nullable=False,
+        index=True,
+    )
     professor_review_label = db.Column(db.String(80), nullable=True)
     professor_notes = db.Column(db.Text, nullable=True)
     pinned_flag = db.Column(db.Boolean, default=False, nullable=False)
@@ -132,16 +225,30 @@ class Attendance(db.Model):
     """Separate participation record for roster tracking, not anonymous review."""
 
     __tablename__ = "attendance"
+    __table_args__ = (
+        db.UniqueConstraint("launch_id", "student_id", name="uq_attendance_launch_student"),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     launch_id = db.Column(
         db.Integer,
         db.ForeignKey("problem_launches.id"),
         nullable=False,
+        index=True,
     )
-    student_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    student_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
     attendance_name = db.Column(db.String(120), nullable=False)
-    recorded_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    recorded_at = db.Column(
+        db.DateTime(timezone=True),
+        server_default=db.func.now(),
+        nullable=False,
+        index=True,
+    )
 
     launch = db.relationship("ProblemLaunch", back_populates="attendance_records")
     student = db.relationship("User")
@@ -151,18 +258,45 @@ class ProblemSubmissionForApproval(db.Model):
     """Professor-submitted problem draft waiting for shared database approval."""
 
     __tablename__ = "problem_submissions_for_approval"
+    __table_args__ = (
+        db.CheckConstraint(
+            "review_status in ('pending', 'approved', 'rejected')",
+            name="ck_problem_submissions_review_status",
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
-    problem_id = db.Column(db.Integer, db.ForeignKey("problems.id"), nullable=True)
+    problem_id = db.Column(
+        db.Integer,
+        db.ForeignKey("problems.id"),
+        nullable=True,
+        index=True,
+    )
     submitted_by_professor_id = db.Column(
         db.Integer,
         db.ForeignKey("users.id"),
         nullable=False,
+        index=True,
     )
-    review_status = db.Column(db.String(30), nullable=False, default="pending")
-    reviewer_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    submitted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    reviewed_at = db.Column(db.DateTime, nullable=True)
+    review_status = db.Column(
+        db.String(30),
+        nullable=False,
+        default="pending",
+        index=True,
+    )
+    reviewer_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=True,
+        index=True,
+    )
+    submitted_at = db.Column(
+        db.DateTime(timezone=True),
+        server_default=db.func.now(),
+        nullable=False,
+        index=True,
+    )
+    reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True, index=True)
 
     problem = db.relationship("Problem")
     submitted_by_professor = db.relationship(
